@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether HUD - Sistema Central</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Share+Tech+Mono&display=swap');
+        
+        :root {
+            --aether-cyan: #00f3ff;
+            --aether-glow: rgba(0, 243, 255, 0.5);
+            --aether-violet: #8a2be2;
+            --aether-bg: #02040a;
+        }
+        
+        body {
+            background-color: var(--aether-bg);
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--aether-cyan);
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            user-select: none;
+        }
+
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* Capa 1: Fondo Radial de Luz / Vignette */
+        .ambient-glow {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, rgba(0, 150, 255, 0.12) 0%, rgba(138, 43, 226, 0.05) 45%, rgba(2, 4, 10, 0.95) 80%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Capa 2: Scanlines e interferencia sutil */
+        .hud-scanline {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0) 50%, rgba(0,243,255,0.02) 50%);
+            background-size: 100% 4px;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        /* Capa 3: Grid Tecnológico en el Fondo */
+        .tech-grid-bg {
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background-image: 
+                linear-gradient(to right, rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform: perspective(500px) rotateX(60deg) translateY(-100px);
+            animation: gridMove 20s linear infinite;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        @keyframes gridMove {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+        }
+
+        .glow-text {
+            text-shadow: 0 0 12px var(--aether-cyan), 0 0 25px rgba(0, 243, 255, 0.4);
+        }
+
+        /* Paneles con Glassmorphism futurista */
+        .glass-card {
+            background: rgba(4, 14, 28, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            box-shadow: 0 0 35px rgba(0, 243, 255, 0.08), inset 0 0 15px rgba(0, 243, 255, 0.05);
+        }
+
+        #aether-universe-container {
+            width: 580px;
+            height: 580px;
+            position: relative;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+        }
+
+        #aether-universe-container:active {
+            cursor: grabbing;
+        }
+
+        /* Anillos perimetrales HUD giratorios */
+        .hud-outer-ring {
+            position: absolute;
+            width: 620px;
+            height: 620px;
+            border-radius: 50%;
+            border: 1px dashed rgba(0, 243, 255, 0.3);
+            animation: spinRing 25s linear infinite;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .hud-outer-ring-2 {
+            position: absolute;
+            width: 660px;
+            height: 660px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: rgba(138, 43, 226, 0.5);
+            border-bottom-color: rgba(0, 243, 255, 0.5);
+            animation: spinRing 18s linear infinite reverse;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        @keyframes spinRing {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow"></div>
+    <div class="hud-scanline"></div>
+    <div class="tech-grid-bg"></div>
+
+    <!-- Header HUD de Aether -->
+    <header class="absolute top-6 text-center z-20 pointer-events-none">
+        <div class="inline-block glass-card px-8 py-3 rounded-2xl border border-cyan-500/30">
+            <h1 class="orbitron text-2xl font-extrabold tracking-[0.4em] glow-text">AETHER // CORE</h1>
+            <p class="text-[11px] text-cyan-300/80 tracking-widest mt-1">SISTEMA CÓSMICO // TRIPLE ANILLO ORBITAL</p>
+        </div>
+    </header>
+
+    <!-- Panel Lateral Izquierdo: Hardware & Telemetría -->
+    <aside class="absolute left-8 glass-card p-5 rounded-2xl w-64 z-20 hidden lg:block text-xs space-y-4">
+        <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
+            <span class="orbitron font-bold text-cyan-300 tracking-wider">AETHER CORE STATS</span>
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+        </div>
+        <div>
+            <div class="flex justify-between mb-1 text-[11px] text-cyan-200">
+                <span>CPU USAGE (8 CORES)</span>
+                <span>18.4%</span>
+            </div>
+            <div class="w-full bg-cyan-950/80 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-cyan-400 h-full w-[18.4%] shadow-[0_0_8px_#00f3ff]"></div>
+            </div>
+        </div>
+        <div>
+            <div class="flex justify-between mb-1 text-[11px] text-cyan-200">
+                <span>RAM ALLOCATED</span>
+                <span>4.2 / 16 GB</span>
+            </div>
+            <div class="w-full bg-cyan-950/80 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-purple-500 h-full w-[26%] shadow-[0_0_8px_#8a2be2]"></div>
+            </div>
+        </div>
+        <div>
+            <div class="flex justify-between mb-1 text-[11px] text-cyan-200">
+                <span>GPU NEURAL ENGINE</span>
+                <span>34.1%</span>
+            </div>
+            <div class="w-full bg-cyan-950/80 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-cyan-400 h-full w-[34.1%] shadow-[0_0_8px_#00f3ff]"></div>
+            </div>
+        </div>
+        <div class="pt-2 border-t border-cyan-500/20 text-[10px] text-gray-400 space-y-1">
+            <p>THREAD_ID: <span class="text-cyan-300">0x88F2A</span></p>
+            <p>LATENCY: <span class="text-cyan-300">12ms</span></p>
+            <p>MODEL: <span class="text-purple-300">FastAPI + LangChain Agent</span></p>
+        </div>
+    </aside>
+
+    <!-- Panel Lateral Derecho: Aether Shield (Ciberseguridad) -->
+    <aside class="absolute right-8 glass-card p-5 rounded-2xl w-64 z-20 hidden lg:block text-xs space-y-4">
+        <div class="flex justify-between items-center border-b border-purple-500/30 pb-2">
+            <span class="orbitron font-bold text-purple-300 tracking-wider">AETHER SHIELD</span>
+            <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+        </div>
+        <div class="space-y-2 text-[11px]">
+            <div class="flex justify-between items-center p-2 rounded bg-purple-950/30 border border-purple-500/20">
+                <span class="text-gray-300">FIREWALL MONITORS</span>
+                <span class="text-emerald-400 font-bold">ACTIVO</span>
+            </div>
+            <div class="flex justify-between items-center p-2 rounded bg-cyan-950/30 border border-cyan-500/20">
+                <span class="text-gray-300">PUERTOS ESCANEADOS</span>
+                <span class="text-cyan-300 font-bold">1,024</span>
+            </div>
+            <div class="flex justify-between items-center p-2 rounded bg-purple-950/30 border border-purple-500/20">
+                <span class="text-gray-300">AMENAZAS BLOQUEADAS</span>
+                <span class="text-purple-300 font-bold">0 DETECTADAS</span>
+            </div>
+        </div>
+        <div class="pt-2 border-t border-purple-500/20 text-[10px] text-gray-400 space-y-1">
+            <p>NET_INTERFACE: <span class="text-cyan-300">eth0 / wlan0</span></p>
+            <p>BLUE_TEAM_MODE: <span class="text-emerald-300">DEFENSIVO</span></p>
+            <p>LOG_ANALYZER: <span class="text-purple-300">PARSING (0 errors)</span></p>
+        </div>
+    </aside>
+
+    <!-- Anillos Tecnológicos Alrededor del Orbe -->
+    <div class="hud-outer-ring"></div>
+    <div class="hud-outer-ring-2"></div>
+
+    <!-- Contenedor 3D del Universo & Orbe -->
+    <div id="aether-universe-container"></div>
+
+    <!-- Panel de Estado Inferior -->
+    <footer class="absolute bottom-6 glass-card px-8 py-3 rounded-2xl flex items-center space-x-8 z-20 text-xs tracking-wider">
+        <div class="flex items-center space-x-3">
+            <div class="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_12px_#00f3ff] animate-pulse"></div>
+            <span class="text-cyan-100 font-bold">SINGULARIDAD // ESTABLE</span>
+        </div>
+        <div class="border-l border-cyan-800/80 pl-8 text-gray-300">
+            DENSIDAD DE ENERGÍA: <span class="text-cyan-300 font-bold">100%</span>
+        </div>
+        <div class="border-l border-cyan-800/80 pl-8 text-gray-300">
+            VISIÓN GESTUAL: <span class="text-purple-300 font-bold">ESPERANDO CAM</span>
+        </div>
+    </footer>
+
+    <script>
+        let scene, camera, renderer;
+        let ringParticlesA, ringParticlesB, ringParticlesC, mysticCoreOuter, mysticCoreInner, backgroundStars;
+        let sparksParticles, sparkSpeeds, sparkLifespans;
+        
+        // Control de Arrastre 3D y Pulso por Clic
+        let isMouseDown = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let targetRotationX = 0, targetRotationY = 0;
+        let pulseMultiplier = 1.0;
+
+        function initAetherUniverse() {
+            const container = document.getElementById('aether-universe-container');
+            if (!container) return;
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+            camera.position.z = 5;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(580, 580);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setClearColor(0x000000, 0);
+            container.appendChild(renderer.domElement);
+
+            const colorCyan = new THREE.Color(0x00f3ff);
+            const colorViolet = new THREE.Color(0x8a2be2);
+            const colorWhite = new THREE.Color(0xffffff);
+            const colorTeal = new THREE.Color(0x00ffaa);
+
+            // Controladores de eventos de Clic y Arrastre con Pulso de Energía
+            window.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+                
+                // Activar pulso de energía al hacer clic
+                pulseMultiplier = 3.5;
+            });
+
+            window.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isMouseDown) return;
+
+                const deltaX = e.clientX - previousMousePosition.x;
+                const deltaY = e.clientY - previousMousePosition.y;
+
+                targetRotationY += deltaX * 0.005;
+                targetRotationX += deltaY * 0.005;
+
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            // -------------------------------------------------------------
+            // 1. NEBULOSA Y ESTRELLAS DISTANTES EN EL FONDO 3D
+            // -------------------------------------------------------------
+            const bgStarCount = 800;
+            const bgGeo = new THREE.BufferGeometry();
+            const bgPos = new Float32Array(bgStarCount * 3);
+            const bgCols = new Float32Array(bgStarCount * 3);
+
+            for(let i = 0; i < bgStarCount; i++) {
+                bgPos[i * 3] = (Math.random() - 0.5) * 15;
+                bgPos[i * 3 + 1] = (Math.random() - 0.5) * 15;
+                bgPos[i * 3 + 2] = -2 - Math.random() * 8;
+
+                let c = Math.random() > 0.5 ? colorCyan.clone() : colorViolet.clone();
+                c.lerp(colorWhite, Math.random() * 0.5);
+
+                bgCols[i * 3] = c.r;
+                bgCols[i * 3 + 1] = c.g;
+                bgCols[i * 3 + 2] = c.b;
+            }
+
+            bgGeo.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
+            bgGeo.setAttribute('color', new THREE.BufferAttribute(bgCols, 3));
+
+            const bgMat = new THREE.PointsMaterial({
+                size: 0.025,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.45,
+                blending: THREE.AdditiveBlending
+            });
+
+            backgroundStars = new THREE.Points(bgGeo, bgMat);
+            scene.add(backgroundStars);
+
+            // -------------------------------------------------------------
+            // 2. TRIPLE ANILLO ESTELAR GIROSCÓPICO (Órbitas cruzadas)
+            // -------------------------------------------------------------
+            function createStarRing(radius, count, colorPrimary) {
+                const geo = new THREE.BufferGeometry();
+                const pos = new Float32Array(count * 3);
+                const colors = new Float32Array(count * 3);
+
+                for (let i = 0; i < count; i++) {
+                    const angle = (i / count) * Math.PI * 2;
+                    const r = radius + (Math.random() - 0.5) * 0.14;
+
+                    pos[i * 3] = Math.cos(angle) * r;
+                    pos[i * 3 + 1] = (Math.random() - 0.5) * 0.1;
+                    pos[i * 3 + 2] = Math.sin(angle) * r;
+
+                    let c = colorPrimary.clone();
+                    c.lerp(colorWhite, Math.random() * 0.4);
+
+                    colors[i * 3] = c.r;
+                    colors[i * 3 + 1] = c.g;
+                    colors[i * 3 + 2] = c.b;
+                }
+
+                geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+                geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+                const mat = new THREE.PointsMaterial({
+                    size: 0.03,
+                    vertexColors: true,
+                    transparent: true,
+                    opacity: 0.9,
+                    blending: THREE.AdditiveBlending
+                });
+
+                return new THREE.Points(geo, mat);
+            }
+
+            ringParticlesA = createStarRing(2.0, 2200, colorCyan);
+            ringParticlesA.rotation.x = Math.PI / 3;
+            ringParticlesA.rotation.z = Math.PI / 6;
+            scene.add(ringParticlesA);
+
+            ringParticlesB = createStarRing(2.2, 1700, colorViolet);
+            ringParticlesB.rotation.x = -Math.PI / 4;
+            ringParticlesB.rotation.y = Math.PI / 4;
+            scene.add(ringParticlesB);
+
+            ringParticlesC = createStarRing(2.45, 1800, colorTeal);
+            ringParticlesC.rotation.x = Math.PI / 12;
+            ringParticlesC.rotation.y = -Math.PI / 6;
+            scene.add(ringParticlesC);
+
+            // -------------------------------------------------------------
+            // 3. NÚCLEO MÍSTICO MULTICAPA (Orbe Arcano)
+            // -------------------------------------------------------------
+            const outerGeo = new THREE.IcosahedronGeometry(1.0, 2);
+            const outerMat = new THREE.MeshBasicMaterial({
+                color: 0x00f3ff,
+                transparent: true,
+                opacity: 0.22,
+                wireframe: true,
+                blending: THREE.AdditiveBlending
+            });
+            mysticCoreOuter = new THREE.Mesh(outerGeo, outerMat);
+            scene.add(mysticCoreOuter);
+
+            const midGeo = new THREE.SphereGeometry(0.75, 32, 32);
+            const midMat = new THREE.MeshBasicMaterial({
+                color: 0x8a2be2,
+                transparent: true,
+                opacity: 0.28,
+                blending: THREE.AdditiveBlending
+            });
+            const mysticCoreMid = new THREE.Mesh(midGeo, midMat);
+            scene.add(mysticCoreMid);
+
+            const innerGeo = new THREE.SphereGeometry(0.48, 32, 32);
+            const innerMat = new THREE.MeshBasicMaterial({
+                color: 0x7df9ff,
+                transparent: true,
+                opacity: 0.65,
+                blending: THREE.AdditiveBlending
+            });
+            mysticCoreInner = new THREE.Mesh(innerGeo, innerMat);
+            scene.add(mysticCoreInner);
+
+            const heartGeo = new THREE.SphereGeometry(0.2, 16, 16);
+            const heartMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.95,
+                blending: THREE.AdditiveBlending
+            });
+            const coreHeart = new THREE.Mesh(heartGeo, heartMat);
+            mysticCoreInner.add(coreHeart);
+
+            // -------------------------------------------------------------
+            // 4. DESTELLOS DE ENERGÍA (SPARKS) LENTOS Y EXPANDIDOS
+            // -------------------------------------------------------------
+            const sparkCount = 150;
+            const sparkGeo = new THREE.BufferGeometry();
+            const sparkPos = new Float32Array(sparkCount * 3);
+            const sparkCols = new Float32Array(sparkCount * 3);
+            
+            sparkSpeeds = [];
+            sparkLifespans = [];
+
+            for (let i = 0; i < sparkCount; i++) {
+                sparkPos[i * 3] = 0;
+                sparkPos[i * 3 + 1] = 0;
+                sparkPos[i * 3 + 2] = 0;
+
+                const u = Math.random();
+                const v = Math.random();
+                const theta = u * 2.0 * Math.PI;
+                const phi = Math.acos(2.0 * v - 1.0);
+                const speed = 0.004 + Math.random() * 0.008;
+
+                sparkSpeeds.push({
+                    x: speed * Math.sin(phi) * Math.cos(theta),
+                    y: speed * Math.sin(phi) * Math.sin(theta),
+                    z: speed * Math.cos(phi)
+                });
+
+                sparkLifespans.push(Math.random());
+
+                let c = Math.random() > 0.3 ? colorCyan.clone() : colorWhite.clone();
+                sparkCols[i * 3] = c.r;
+                sparkCols[i * 3 + 1] = c.g;
+                sparkCols[i * 3 + 2] = c.b;
+            }
+
+            sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3));
+            sparkGeo.setAttribute('color', new THREE.BufferAttribute(sparkCols, 3));
+
+            const sparkMat = new THREE.PointsMaterial({
+                size: 0.035,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            sparksParticles = new THREE.Points(sparkGeo, sparkMat);
+            scene.add(sparksParticles);
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = Date.now() * 0.0015;
+
+            // Amortiguación de la rotación por el usuario
+            scene.rotation.y += (targetRotationY - scene.rotation.y) * 0.08;
+            scene.rotation.x += (targetRotationX - scene.rotation.x) * 0.08;
+
+            // Retorno gradual del multiplicador de pulso a la normalidad (1.0)
+            pulseMultiplier += (1.0 - pulseMultiplier) * 0.05;
+
+            // Animación de los destellos con el pulso interactivo
+            if (sparksParticles) {
+                const positions = sparksParticles.geometry.attributes.position.array;
+                for (let i = 0; i < sparkSpeeds.length; i++) {
+                    positions[i * 3] += sparkSpeeds[i].x * pulseMultiplier;
+                    positions[i * 3 + 1] += sparkSpeeds[i].y * pulseMultiplier;
+                    positions[i * 3 + 2] += sparkSpeeds[i].z * pulseMultiplier;
+
+                    sparkLifespans[i] += 0.005 * pulseMultiplier;
+
+                    const distSq = positions[i * 3]**2 + positions[i * 3 + 1]**2 + positions[i * 3 + 2]**2;
+                    if (distSq > 7.0 || sparkLifespans[i] > 2.5) {
+                        positions[i * 3] = 0;
+                        positions[i * 3 + 1] = 0;
+                        positions[i * 3 + 2] = 0;
+                        sparkLifespans[i] = 0;
+                    }
+                }
+                sparksParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Rotación suave continua de los elementos internos
+            if (backgroundStars) {
+                backgroundStars.rotation.y = time * 0.02;
+            }
+
+            if (mysticCoreOuter) {
+                mysticCoreOuter.rotation.y = time * 0.35;
+                mysticCoreOuter.rotation.x = time * 0.2;
+            }
+
+            if (mysticCoreInner) {
+                mysticCoreInner.rotation.y = -time * 0.45;
+                const pulse = (1 + Math.sin(time * 3.5) * 0.08) * (pulseMultiplier > 1.5 ? 1.15 : 1.0);
+                mysticCoreInner.scale.set(pulse, pulse, pulse);
+            }
+
+            if (ringParticlesA) {
+                ringParticlesA.rotation.y += 0.007;
+            }
+            if (ringParticlesB) {
+                ringParticlesB.rotation.z -= 0.009;
+            }
+            if (ringParticlesC) {
+                ringParticlesC.rotation.y -= 0.005;
+                ringParticlesC.rotation.x += 0.003;
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        window.onload = initAetherUniverse;
+    </script>
+</body>
+</html>

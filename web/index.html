@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aether HUD - Sistema Central AETHER</title>
+    <!-- Tailwind CSS para utilidades rápidas -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js para el núcleo 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Estilos HUD Futuristas -->
+    <link rel="stylesheet" href="css/hud.css">
+</head>
+<body class="flex flex-col justify-between">
+    <!-- Capas visuales de fondo -->
+    <div class="ambient-glow"></div>
+    <div class="hud-scanline"></div>
+    <div class="tech-grid-bg"></div>
+
+    <!-- Barra Superior / Ventana de Escritorio (Arrastrable) -->
+    <nav class="w-full flex justify-between items-center px-6 py-3 z-30 pywebview-drag-region">
+        <div class="flex items-center space-x-3">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#00f3ff] animate-pulse"></span>
+            <span class="orbitron text-xs font-bold tracking-[0.2em] text-cyan-300">AETHER IA // OS v1.0</span>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <div class="glass-card px-6 py-1.5 rounded-xl border border-cyan-500/30">
+                <span class="orbitron text-sm font-extrabold tracking-[0.3em] glow-text">ÉTER CORE</span>
+                <span class="text-[10px] text-cyan-400/70 ml-2">SISTEMA ACTIVO</span>
+            </div>
+
+            <!-- Botón / Indicador de Biometría Éter Vision -->
+            <button id="vision-toggle-btn" onclick="toggleVision()" class="glass-card px-4 py-1.5 rounded-xl border border-purple-500/40 flex items-center space-x-2 no-drag cursor-pointer hover:border-purple-300 transition" title="Activar/Desactivar Escaneo Biométrico">
+                <span id="vision-led" class="w-2 h-2 rounded-full bg-gray-500"></span>
+                <span id="vision-pill-text" class="text-[11px] orbitron font-bold text-gray-300">ÉTER VISION: OFF</span>
+            </button>
+        </div>
+
+        <!-- Botones de control de ventana (No arrastrables) -->
+        <div class="flex items-center space-x-2 no-drag">
+            <button onclick="minimizeWindow()" class="w-7 h-7 rounded-lg glass-card flex items-center justify-center text-cyan-400 hover:bg-cyan-500/20 text-xs transition" title="Minimizar">
+                _
+            </button>
+            <button onclick="toggleFullscreen()" class="w-7 h-7 rounded-lg glass-card flex items-center justify-center text-cyan-400 hover:bg-cyan-500/20 text-xs transition" title="Pantalla Completa">
+                ▢
+            </button>
+            <button onclick="closeWindow()" class="w-7 h-7 rounded-lg glass-card flex items-center justify-center text-red-400 hover:bg-red-500/30 text-xs transition" title="Cerrar">
+                ✕
+            </button>
+        </div>
+    </nav>
+
+    <!-- Contenido Principal: Paneles Laterales y Núcleo 3D -->
+    <main class="relative flex-1 flex items-center justify-center w-full px-6">
+        
+        <!-- Panel Lateral Izquierdo: Hardware & Telemetría en Vivo -->
+        <aside class="absolute left-6 glass-card p-5 rounded-2xl w-72 z-20 hidden md:block text-xs space-y-4">
+            <div class="flex justify-between items-center border-b border-cyan-500/30 pb-2">
+                <span class="orbitron font-bold text-cyan-300 tracking-wider">TELEMETRÍA REAL</span>
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            </div>
+
+            <!-- CPU -->
+            <div>
+                <div class="flex justify-between mb-1 text-[11px] text-cyan-200">
+                    <span id="cpu-cores">CPU EN TIEMPO REAL</span>
+                    <span id="cpu-percent" class="font-bold">--%</span>
+                </div>
+                <div class="w-full bg-cyan-950/80 h-1.5 rounded-full overflow-hidden">
+                    <div id="cpu-bar" class="bg-cyan-400 h-full w-[0%] shadow-[0_0_8px_#00f3ff] transition-all duration-500"></div>
+                </div>
+            </div>
+
+            <!-- RAM -->
+            <div>
+                <div class="flex justify-between mb-1 text-[11px] text-cyan-200">
+                    <span>MEMORIA RAM</span>
+                    <span id="ram-text" class="font-bold">-- / -- GB</span>
+                </div>
+                <div class="w-full bg-cyan-950/80 h-1.5 rounded-full overflow-hidden">
+                    <div id="ram-bar" class="bg-purple-500 h-full w-[0%] shadow-[0_0_8px_#8a2be2] transition-all duration-500"></div>
+                </div>
+            </div>
+
+            <!-- DISCO -->
+            <div>
+                <div class="flex justify-between mb-1 text-[11px] text-cyan-200">
+                    <span>ALMACENAMIENTO (C:)</span>
+                    <span id="disk-text" class="font-bold">--%</span>
+                </div>
+                <div class="w-full bg-cyan-950/80 h-1.5 rounded-full overflow-hidden">
+                    <div id="disk-bar" class="bg-emerald-400 h-full w-[0%] shadow-[0_0_8px_#10b981] transition-all duration-500"></div>
+                </div>
+            </div>
+
+            <!-- BATERÍA / ENERGÍA -->
+            <div class="pt-2 border-t border-cyan-500/20 text-[11px] text-gray-300 flex justify-between items-center">
+                <span>ENERGÍA:</span>
+                <span id="battery-text" class="text-cyan-300 font-bold">MONITOREANDO...</span>
+            </div>
+
+            <div class="pt-2 border-t border-cyan-500/20 text-[10px] text-gray-400 space-y-1">
+                <p>NÚCLEO: <span class="text-purple-300">Python 3.14 + pywebview</span></p>
+                <p>MOTOR 3D: <span class="text-cyan-300">Three.js WebGL</span></p>
+                <p>MEMORIA: <span id="memory-pill" class="text-emerald-300 font-mono">SEMÁNTICA VECT. ACTIVA</span></p>
+                <p>CONTEXTO: <span id="context-pill" class="text-cyan-300 font-mono">SINCRONIZANDO...</span></p>
+            </div>
+        </aside>
+
+        <!-- Anillos Tecnológicos Giratorios -->
+        <div class="hud-outer-ring"></div>
+        <div class="hud-outer-ring-2"></div>
+
+        <!-- Contenedor 3D del Universo & Orbe -->
+        <div id="aether-universe-container"></div>
+
+        <!-- Panel Lateral Derecho: Atajos y Automatizaciones de Windows -->
+        <aside class="absolute right-6 glass-card p-5 rounded-2xl w-72 z-20 hidden md:block text-xs space-y-4">
+            <div class="flex justify-between items-center border-b border-purple-500/30 pb-2">
+                <span class="orbitron font-bold text-purple-300 tracking-wider">AUTOMATIZACIÓN</span>
+                <span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+            </div>
+
+            <p class="text-[11px] text-gray-300">ACCIONES DIRECTAS DEL SISTEMA:</p>
+
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+                <button onclick="triggerApp('calculadora')" class="hud-btn flex items-center justify-center space-x-1">
+                    <span>🧮</span><span>Calculadora</span>
+                </button>
+                <button onclick="triggerApp('notepad')" class="hud-btn flex items-center justify-center space-x-1">
+                    <span>📝</span><span>Bloc Notas</span>
+                </button>
+                <button onclick="triggerApp('explorer')" class="hud-btn flex items-center justify-center space-x-1">
+                    <span>📁</span><span>Archivos</span>
+                </button>
+                <button onclick="triggerApp('terminal')" class="hud-btn flex items-center justify-center space-x-1">
+                    <span>💻</span><span>Terminal</span>
+                </button>
+                <button onclick="triggerApp('taskmgr')" class="hud-btn flex items-center justify-center space-x-1">
+                    <span>⚡</span><span>Tareas</span>
+                </button>
+                <button onclick="triggerPulse(3.5)" class="hud-btn hud-btn-purple flex items-center justify-center space-x-1">
+                    <span>✨</span><span>Pulso HUD</span>
+                </button>
+            </div>
+
+            <!-- Escáner Biométrico Éter Vision -->
+            <div class="pt-2 border-t border-purple-500/20 space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="orbitron text-[10px] text-purple-300 font-bold tracking-wider">ÉTER VISION (CÁMARA)</span>
+                    <span id="vision-face-badge" class="text-[9px] px-2 py-0.5 rounded bg-gray-900 border border-gray-700 text-gray-400 font-mono">OFF</span>
+                </div>
+                <div id="vision-preview-container" class="relative w-full h-28 rounded-xl border border-purple-500/30 overflow-hidden bg-black/60 flex items-center justify-center">
+                    <img id="vision-feed" class="w-full h-full object-cover hidden" alt="Feed Biométrico">
+                    <div id="vision-placeholder" class="text-center p-2 space-y-1">
+                        <span class="text-xl">👁️</span>
+                        <p class="text-[9px] text-gray-400 font-mono">ESCÁNER EN ESPERA</p>
+                        <button onclick="toggleVision()" class="hud-btn hud-btn-purple text-[9px] px-2.5 py-0.5">ENCENDER</button>
+                    </div>
+                </div>
+                <p id="vision-hud-status" class="text-[10px] text-cyan-300 font-mono truncate text-center">BIOMETRÍA SUSPENDIDA</p>
+            </div>
+
+            <div class="pt-2 border-t border-purple-500/20 space-y-2">
+                <p class="text-[10px] text-purple-200 tracking-wider">HERRAMIENTAS AUTÓNOMAS (IA):</p>
+                <div class="bg-purple-950/40 p-2.5 rounded-lg border border-purple-500/20 text-[10px] text-gray-300 space-y-1">
+                    <p>• "Aether, ¿cómo está el hardware del PC?"</p>
+                    <p>• "¿Cuál es mi framework web favorito?"</p>
+                    <p>• "Recuerda que mi comida preferida es X"</p>
+                    <p>• "Apunta en mi escritorio la tarea X"</p>
+                    <p>• "Bloquea la pantalla por seguridad"</p>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- Barra Inferior: Consola de Comandos e Indicador de Jarvis -->
+    <footer class="w-full flex flex-col items-center px-6 pb-6 z-30 space-y-3">
+        <!-- Estado de Jarvis / Transcripción -->
+        <div class="glass-card px-6 py-2.5 rounded-xl flex items-start space-x-3 text-xs tracking-wider max-w-2xl w-full justify-between shadow-[0_0_20px_rgba(0,243,255,0.1)]">
+            <div class="flex items-start space-x-2 flex-1">
+                <span class="text-purple-400 font-bold orbitron shrink-0 mt-0.5">AETHER:</span>
+                <span id="hud-status-text" class="text-cyan-200 font-mono text-xs leading-relaxed max-h-24 overflow-y-auto pr-1">ESPERANDO DIRECTIVAS...</span>
+            </div>
+            <span class="text-[10px] text-emerald-400 font-mono shrink-0 ml-2">● ONLINE</span>
+        </div>
+
+        <!-- Entrada de Comando con Micrófono y Botón de Enviar -->
+        <div class="command-input-bar rounded-2xl flex items-center px-4 py-2 max-w-2xl w-full space-x-3">
+            <!-- Botón de Micrófono para Orden por Voz -->
+            <button id="mic-btn" onclick="toggleVoiceListening()" class="w-9 h-9 rounded-xl glass-card flex items-center justify-center text-cyan-400 hover:text-white transition" title="Hablarle a Aether">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 003-3V5a3 3 0 10-6 0v6a3 3 0 003 3z" />
+                </svg>
+            </button>
+
+            <!-- Input de Texto -->
+            <input id="command-input" type="text" placeholder="Pregúntame lo que sea o da una orden (Ej: 'Quién eres?', 'abrir calculadora')..." autocomplete="off">
+
+            <!-- Botón Enviar -->
+            <button onclick="sendCommand()" class="hud-btn px-4 py-2 font-bold tracking-wider hover:shadow-[0_0_15px_#00f3ff]">
+                EJECUTAR
+            </button>
+        </div>
+    </footer>
+
+    <!-- Scripts de Three.js y Lógica de Aplicación -->
+    <script src="js/hud3d.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+

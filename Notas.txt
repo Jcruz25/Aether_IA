@@ -1,0 +1,9 @@
+Para mantener el proyecto bien estructurado desde el principio, así podemos nombrar los componentes clave de la arquitectura:
+
+Éter Core: El backend en Python (FastAPI + LangChain/CrewAI) encargado de la lógica, memoria y orquestación de agentes.
+
+Éter Vision: El módulo de visión por computadora (OpenCV + MediaPipe) para el control gestual de modelos 3D a través de la cámara.
+
+Éter HUD: La interfaz gráfica interactiva (Tauri + React/Tailwind + Three.js) para la visualización en pantalla.
+
+Éter Shield: El módulo de ciberseguridad defensiva y monitoreo de red en tiempo real.
